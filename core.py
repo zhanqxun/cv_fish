@@ -5,6 +5,7 @@ import numpy as np
 import math
 from SimpleLogger import logger
 import time
+import os
 
 
 def p_to_l(x0, y0, x1, y1, x2, y2):
@@ -12,8 +13,10 @@ def p_to_l(x0, y0, x1, y1, x2, y2):
 
 
 def pic_hough(edges, img):
-	lines = cv2.HoughLines(edges, 1, np.pi/180, 40)
+	lines = cv2.HoughLines(edges, 1, np.pi/180, 50)
+	tmp_lines = []
 	if lines is not None and len(lines):
+		tmp_lines.append([])
 		for rho, theta in lines[0]:
 			a = np.cos(theta)
 			b = np.sin(theta)
@@ -25,6 +28,8 @@ def pic_hough(edges, img):
 			y2 = int(y0 - 1000*(a))
 			#print x1, y1, x2, y2
 			cv2.line(img,(x1,y1),(x2,y2),(0,0,255),1)
+			tmp_lines[0].append((x1, y1, x2, y2))
+	return tmp_lines
 
 
 def pic_houghP(edges, img):
@@ -116,7 +121,7 @@ def hook(s, e, x, y, h, d):
 
 x = 0
 y = 0
-max_x = 1400
+max_x = 1440
 max_y = 900
 def show_win(name, img):
 	global x, y, max_x, max_y
@@ -181,7 +186,7 @@ def find_hook(s1, s2, waitKey=False):
 		cv2.waitKey(10)
 
 	s3 = s.copy()
-	lines = pic_houghP(canny, s)
+	lines = pic_hough(canny, s)
 	#show_win("s3", canny)
 	
 	pic_bin(minus, 15)
@@ -267,9 +272,8 @@ def find_hook(s1, s2, waitKey=False):
 		show_win("result", resize(minus))
 		cv2.waitKey(10)
 
-		logger.info("press key to close")
-		cv2.waitKey(0)
-		cv2.destroyAllWindows()
+		# logger.info("press key to continue")
+		# cv2.waitKey(0)
 
 	return result_list, target_pos, total_grey_diff
 
@@ -290,13 +294,40 @@ def cal_diff_ratio(s1, s2, result_list, total_grey_diff):
 	return diff_ratio
 
 if __name__ == "__main__":
-	s1 = cv2.imread("2/2 (1).jpg")
-	s2 = cv2.imread("2/2 (2).jpg")
-	result_list, target_pos, total_grey_diff = find_hook(s1, s2, True)
-	logger.info("target_pos %s", target_pos)
-	if target_pos and total_grey_diff:
-		diff_ratio = cal_diff_ratio(s1, s2, result_list, total_grey_diff)
-		logger.info("diff_ratio %s", diff_ratio)
+	is_quit = False
+	for f in os.listdir("."):
+		if os.path.isdir(f) and f.isdigit():
+			original_file = None
+			for p_file in os.listdir(f):
+				if p_file.find("(1)") != -1:
+					original_file = p_file
+			if original_file:
+				for p_file in os.listdir(f):
+					if p_file == original_file:
+						continue
+					
+					s1 = cv2.imread(os.path.join(f, original_file))
+					s2 = cv2.imread(os.path.join(f, p_file))
+					result_list, target_pos, total_grey_diff = find_hook(s1, s2, True)
+					logger.info("target_pos %s", target_pos)
+					if target_pos and total_grey_diff:
+						diff_ratio = cal_diff_ratio(s1, s2, result_list, total_grey_diff)
+						logger.info("diff_ratio %s", diff_ratio)
+					logger.info("original_file %s p_file %s", os.path.join(f, original_file), os.path.join(f, p_file))
+					x = 0
+					y = 0
+					logger.info("press esc to break, other key to continue")
+					k = cv2.waitKey(0)&0xFF
+					if k == 27:
+						is_quit = True
+						break
+					else:
+						cv2.destroyAllWindows()
+				if is_quit:
+					break
+			if is_quit:
+				break
 
-	cv2.waitKey(10)
+	logger.info("press key to exit")
+	cv2.waitKey(0)
 	cv2.destroyAllWindows()
