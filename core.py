@@ -114,6 +114,26 @@ def hook(s, e, x, y, h, d):
 		hook(s, e, x, y - 2, h, d + 1)
 		hook(s, e, x, y + 2, h, d + 1)
 
+x = 0
+y = 0
+max_x = 1400
+max_y = 900
+def show_win(name, img):
+	global x, y, max_x, max_y
+	t_img = resize(img)
+	cv2.imshow(name, t_img)
+	w = t_img.shape[1]
+	h = t_img.shape[0]
+	
+	cv2.moveWindow(name, x, y)
+
+	if x + w > max_x:
+		x = 0
+		y = y + h + 40
+	else:
+		x = x + w + 15
+
+
 
 def find_hook(s1, s2, waitKey=False):
 	t_width = s1.shape[0]
@@ -141,39 +161,35 @@ def find_hook(s1, s2, waitKey=False):
 
 	minus = np.zeros(s1.shape, np.uint8)
 
-	#cv2.imwrite("grey.jpg", s2)
-
-	#print s1.shape
-
 	pic_sub(minus, s1, s2)
 
 	minus_backup = minus.copy()
 
 	if waitKey:
-		cv2.imshow("original", resize(s1))
-		cv2.imshow("target", resize(s2))
-		cv2.imshow("minus", resize(minus))
+		show_win("original", resize(s1))
+		show_win("target", resize(s2))
+		show_win("minus", resize(minus))
 
 	if waitKey:
-		cv2.waitKey(0)
+		cv2.waitKey(10)
 
 	canny = pic_canny(minus)
 	#canny = minus.copy()
 	
 	if waitKey:
-		cv2.imshow("canny", resize(canny))
-		cv2.waitKey(0)
+		show_win("canny", resize(canny))
+		cv2.waitKey(10)
 
 	s3 = s.copy()
 	lines = pic_houghP(canny, s)
-	#cv2.imshow("s3", canny)
+	#show_win("s3", canny)
 	
 	pic_bin(minus, 15)
 	if waitKey:
-		cv2.imshow("hough", resize(s))
-		cv2.waitKey(0)
-		cv2.imshow("binary", resize(minus))
-		cv2.waitKey(0)
+		show_win("hough", resize(s))
+		cv2.waitKey(10)
+		show_win("binary", resize(minus))
+		cv2.waitKey(10)
 	
 
 	if lines is not None and len(lines):
@@ -186,14 +202,14 @@ def find_hook(s1, s2, waitKey=False):
 				x1, y1, x2, y2 = lines[0][idx]
 				cv2.line(s3,(x1,y1),(x2,y2),(0,0,255),1)
 				if waitKey:
-					cv2.imshow("choose_line", resize(s3))
+					show_win("choose_line", resize(s3))
 				break
 	else:
 		logger.info("Cannot find lines")
 		return result_list, target_pos, total_grey_diff
 
 	if waitKey:
-		cv2.waitKey(0)
+		cv2.waitKey(10)
 
 	for x in range(s2.shape[0]):
 		for y in range(s2.shape[1]):
@@ -209,8 +225,8 @@ def find_hook(s1, s2, waitKey=False):
 				minus[x, y] = 0
 
 	if waitKey:
-		cv2.imshow("filter_point", resize(minus))
-		cv2.waitKey(0)
+		show_win("filter_point", resize(minus))
+		cv2.waitKey(10)
 
 	hook_list = get_hook(minus)
 	max_hook_len = 0
@@ -248,54 +264,39 @@ def find_hook(s1, s2, waitKey=False):
 
 	
 	if waitKey:
-		cv2.imshow("result", resize(minus))
-		cv2.waitKey(0)
+		show_win("result", resize(minus))
+		cv2.waitKey(10)
 
 		logger.info("press key to close")
 		cv2.waitKey(0)
 		cv2.destroyAllWindows()
 
-	#cv2.destroyAllWindows()
 	return result_list, target_pos, total_grey_diff
 
 
 def cal_diff_ratio(s1, s2, result_list, total_grey_diff):
 	t_width = s1.shape[0]
-	#t1 = time.time()
 	ratio = s1.shape[1] / float(s1.shape[0])
 	s1 = cv2.resize(s1, (int(ratio * t_width), int(t_width)), interpolation=cv2.INTER_CUBIC)
-	#s1 = cv2.cvtColor(s1, cv2.COLOR_BGR2GRAY)
 	s1 = pic_cut(s1, 1 / 4.0, 3 / 4.0, 0, 1 / 2.0)
-	
 	s = cv2.resize(s2, (int(ratio * t_width), int(t_width)), interpolation=cv2.INTER_CUBIC)
-	#s2 = cv2.cvtColor(s, cv2.COLOR_BGR2GRAY)
 	s2 = pic_cut(s2, 1 / 4.0, 3 / 4.0, 0, 1 / 2.0)
 	s = pic_cut(s, 1 / 4.0, 3 / 4.0, 0, 1 / 2.0)
 	minus = np.zeros(s1.shape, np.uint8)
-	#t2 = time.time()
-	#logger.info("resize cost %s", str(t2 - t1))
-	
-	#pic_sub2(minus, s1, s2, result_list)
-	t3 = time.time()
-	#logger.info("sub cost %s", str(t3 - t2))
-	#pic_bin(minus, 20)
-
 	total = 0
 	for p in result_list:
 		total += abs(float(s1[p[0], p[1], 1]) - float(s2[p[0], p[1], 1]))
 	diff_ratio = math.fabs(total_grey_diff - total) / float(total_grey_diff)
-	t4 = time.time()
-	#logger.info("total_grey_diff total ratio %s %s %s %s", total_grey_diff, total, diff_ratio, str(t4 - t3))
 	return diff_ratio
 
 if __name__ == "__main__":
-	s1 = cv2.imread("3 (2).jpg")
-	s2 = cv2.imread("3 (1).jpg")
+	s1 = cv2.imread("2/2 (1).jpg")
+	s2 = cv2.imread("2/2 (2).jpg")
 	result_list, target_pos, total_grey_diff = find_hook(s1, s2, True)
-	print "target_pos", target_pos
+	logger.info("target_pos %s", target_pos)
 	if target_pos and total_grey_diff:
 		diff_ratio = cal_diff_ratio(s1, s2, result_list, total_grey_diff)
-		print "diff_ratio", diff_ratio
+		logger.info("diff_ratio %s", diff_ratio)
 
-	cv2.waitKey(0)
+	cv2.waitKey(10)
 	cv2.destroyAllWindows()
