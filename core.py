@@ -295,38 +295,42 @@ def cal_diff_ratio(s1, s2, result_list, total_grey_diff):
 
 if __name__ == "__main__":
 	is_quit = False
+	dir_list = []
 	for f in os.listdir("."):
 		if os.path.isdir(f) and f.isdigit():
-			original_file = None
+			dir_list.append(f)
+	dir_list = sorted(dir_list, reverse=True)
+	for f in dir_list:
+		original_file = None
+		for p_file in os.listdir(f):
+			if p_file.find("(1)") != -1:
+				original_file = p_file
+		if original_file:
 			for p_file in os.listdir(f):
-				if p_file.find("(1)") != -1:
-					original_file = p_file
-			if original_file:
-				for p_file in os.listdir(f):
-					if p_file == original_file:
-						continue
-					
-					s1 = cv2.imread(os.path.join(f, original_file))
-					s2 = cv2.imread(os.path.join(f, p_file))
-					result_list, target_pos, total_grey_diff = find_hook(s1, s2, True)
-					logger.info("target_pos %s", target_pos)
-					if target_pos and total_grey_diff:
-						diff_ratio = cal_diff_ratio(s1, s2, result_list, total_grey_diff)
-						logger.info("diff_ratio %s", diff_ratio)
-					logger.info("original_file %s p_file %s", os.path.join(f, original_file), os.path.join(f, p_file))
-					x = 0
-					y = 0
-					logger.info("press esc to break, other key to continue")
-					k = cv2.waitKey(0)&0xFF
-					if k == 27:
-						is_quit = True
-						break
-					else:
-						cv2.destroyAllWindows()
-				if is_quit:
+				if p_file == original_file:
+					continue
+				
+				s1 = cv2.imread(os.path.join(f, original_file))
+				s2 = cv2.imread(os.path.join(f, p_file))
+				result_list, target_pos, total_grey_diff = find_hook(s1, s2, True)
+				logger.info("target_pos %s", target_pos)
+				if target_pos and total_grey_diff:
+					diff_ratio = cal_diff_ratio(s1, s2, result_list, total_grey_diff)
+					logger.info("diff_ratio %s", diff_ratio)
+				logger.info("original_file %s p_file %s", os.path.join(f, original_file), os.path.join(f, p_file))
+				x = 0
+				y = 0
+				logger.info("press esc to break, other key to continue")
+				k = cv2.waitKey(0)&0xFF
+				if k == 27:
+					is_quit = True
 					break
+				else:
+					cv2.destroyAllWindows()
 			if is_quit:
 				break
+		if is_quit:
+			break
 
 	logger.info("press key to exit")
 	cv2.waitKey(0)
