@@ -109,6 +109,7 @@ if __name__ == "__main__":
 			snap_image, rect = grab()
 			result_list, target_pos, total_grey_diff = core.find_hook(ori_image, snap_image, False)
 			#result_list, target_pos, total_grey_diff = core.find_hook(ori_image, snap_image, True)
+			logger.info("target_pos %s total_grey_diff %s", target_pos, total_grey_diff)
 			if target_pos:
 				state = STATE_WAIT
 				time.sleep(0.05)
@@ -118,19 +119,19 @@ if __name__ == "__main__":
 				time.sleep(3)
 			#cv2.waitKey(0)
 		elif state == STATE_WAIT:
-			#t1 = time.time()
+			t1 = time.time()
 			snap_image, rect = grab()
-			#t2 = time.time()
+			t2 = time.time()
 			#logger.info("grab cost %s", str(t2 - t1))
 			diff_ratio = core.cal_diff_ratio(ori_image, snap_image, result_list, total_grey_diff)
-			#t3 = time.time()
+			t3 = time.time()
 			#logger.info("cal cost %s", str(t3 - t2))
 			#logger.info("diff_ratio %s", str(diff_ratio))
-			if diff_ratio > 0.33:
+			if diff_ratio > 0.30:
 				state = STATE_FINI
 				logger.info("diff_ratio %s", str(diff_ratio))
-			else:
-				time.sleep(0.001)
+			# else:
+			# 	time.sleep(0.001)
 			if time.time() - last_cast_ts > 25:
 				state = STATE_IDLE
 				#key_input(["esc"])

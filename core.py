@@ -54,6 +54,8 @@ def pic_canny(img):
 	return edges
 
 def pic_cut(s, left, right, top, bottom):
+	# shape[0] height
+	# shape[1] width
 	m = s.shape[0]
 	n = s.shape[1]
 	#print m, n
@@ -107,17 +109,13 @@ def get_hook(s):
 
 
 def hook(s, e, x, y, h, d):
-	if x >= 0 and y >= 0 and x < s.shape[0] and y < s.shape[1] and s[x, y] > 0 and e[x, y] == 0 and d < 15:
+	if x >= 0 and y >= 0 and x < s.shape[0] and y < s.shape[1] and s[x, y] > 0 and e[x, y] == 0 and d < 200:
 		h.append([x, y])
 		e[x, y] = 1
 		hook(s, e, x + 1, y, h, d + 1)
 		hook(s, e, x - 1, y, h, d + 1)
 		hook(s, e, x, y - 1, h, d + 1)
 		hook(s, e, x, y + 1, h, d + 1)
-		hook(s, e, x + 2, y, h, d + 1)
-		hook(s, e, x - 2, y, h, d + 1)
-		hook(s, e, x, y - 2, h, d + 1)
-		hook(s, e, x, y + 2, h, d + 1)
 
 x = 0
 y = 0
@@ -137,7 +135,6 @@ def show_win(name, img):
 		y = y + h + 40
 	else:
 		x = x + w + 15
-
 
 
 def find_hook(s1, s2, waitKey=False):
@@ -161,7 +158,8 @@ def find_hook(s1, s2, waitKey=False):
 	s2_back = s.copy()
 	s2 = cv2.cvtColor(s, cv2.COLOR_BGR2GRAY)
 	s2 = pic_cut(s2, 1 / 4.0, 3 / 4.0, 0, 1 / 2.0)
-	s2_back = pic_cut(s2_back, 1 / 4.0, 3 / 4.0, 0, 1 / 2.0)
+	#s2_back = pic_cut(s2_back, 1 / 4.0, 3 / 4.0, 0, 1 / 2.0)
+	s2_back = s2.copy()
 	s = pic_cut(s, 1 / 4.0, 3 / 4.0, 0, 1 / 2.0)
 
 	minus = np.zeros(s1.shape, np.uint8)
@@ -171,13 +169,14 @@ def find_hook(s1, s2, waitKey=False):
 	minus_backup = minus.copy()
 
 	if waitKey:
-		show_win("original", resize(s1))
-		show_win("target", resize(s2))
+		#show_win("original", resize(s1))
+		#show_win("target", resize(s2))
 		show_win("minus", resize(minus))
 
 	if waitKey:
 		cv2.waitKey(10)
 
+	# 对灰度图做边缘检测
 	canny = pic_canny(minus)
 	#canny = minus.copy()
 	
@@ -186,16 +185,19 @@ def find_hook(s1, s2, waitKey=False):
 		cv2.waitKey(10)
 
 	s3 = s.copy()
+	# 直线检测
 	lines = pic_hough(canny, s)
 	#show_win("s3", canny)
 	
-	pic_bin(minus, 15)
+	pic_bin(minus, 25)
+	bin_back = minus.copy()
 	if waitKey:
 		show_win("hough", resize(s))
 		cv2.waitKey(10)
 		show_win("binary", resize(minus))
 		cv2.waitKey(10)
 	
+
 
 	if lines is not None and len(lines):
 		d = []
@@ -218,7 +220,9 @@ def find_hook(s1, s2, waitKey=False):
 
 	for x in range(s2.shape[0]):
 		for y in range(s2.shape[1]):
-			if s2[x, y] > 120:
+			if s2[x, y] > 150:
+				minus[x, y] = 0
+			if x > s2.shape[0] / 10.0 * 9.0:
 				minus[x, y] = 0
 
 	for x in range(minus.shape[0]):
@@ -228,12 +232,35 @@ def find_hook(s1, s2, waitKey=False):
 				pass
 			else:
 				minus[x, y] = 0
+	t1 = time.time()
+	kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(3, 3))
+	# 做一次开运算，消除噪音点
+	opened = cv2.morphologyEx(minus, cv2.MORPH_OPEN, kernel)
+	# 在做一次闭运算，连接误分的对象
+	#kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(7, 7))
+	diamond = cv2.getStructuringElement(cv2.MORPH_RECT,(5, 5))  
+
+	closed = cv2.morphologyEx(opened, cv2.MORPH_CLOSE, diamond)
+
+	closed = cv2.dilate(closed, diamond)  
+	t2 = time.time()
+	logger.info("morphologyEx cost %ss", str(t2 - t1))
+
+	if waitKey:
+		show_win("opened", resize(opened))
+		cv2.waitKey(10)
+		show_win("closed", resize(closed))
+		cv2.waitKey(10)
+
+	minus = closed
 
 	if waitKey:
 		show_win("filter_point", resize(minus))
 		cv2.waitKey(10)
-
+	t3 = time.time()
 	hook_list = get_hook(minus)
+	t4 = time.time()
+	logger.info("get_hook cost %ss", str(t4 - t3))
 	max_hook_len = 0
 	max_hook = None
 	for h in hook_list:
@@ -241,29 +268,29 @@ def find_hook(s1, s2, waitKey=False):
 			max_hook_len = len(h)
 			max_hook = h
 
-	logger.info("max_hook %s", str(max_hook))
-	if max_hook:
-		for x in range(minus.shape[0]):
-			for y in range(minus.shape[1]):
-				for p in max_hook:
-					if p[0] == x and p[1] == y:
-						break
-				else:
-					minus[x, y] = 0
-
-
+	#logger.info("max_hook %s", len(max_hook))
 	target_num = 0
 	total_x = 0
 	total_y = 0
-	
-	for x in range(minus.shape[0]):
-		for y in range(minus.shape[1]):
-			if minus[x, y] > 0:
-				target_num += 1
-				result_list.append((x, y))
-				total_x += y * scale + basex
-				total_y += x * scale
-				total_grey_diff += abs(float(s1_back[x, y, 1]) - float(s2_back[x, y, 1]))
+	if max_hook:
+		t5 = time.time()
+		hook_map = {}
+		for p in max_hook:
+			hook_map[(p[0], p[1])] = True
+		for x in range(minus.shape[0]):
+			for y in range(minus.shape[1]):
+				if hook_map.get((x, y), None) is not None:
+					if minus[x, y] > 0 and bin_back[x, y] > 0:
+						target_num += 1
+						result_list.append((x, y))
+						total_x += y * scale + basex
+						total_y += x * scale
+						total_grey_diff += abs(s2_back[x, y])
+				else:
+					minus[x, y] = 0
+
+		t6 = time.time()
+		logger.info("filter hook cost %ss", str(t6 - t5))
 	if target_num > 0:
 		target_pos = (int(total_x / target_num), int(total_y / target_num))
 
@@ -285,13 +312,15 @@ def cal_diff_ratio(s1, s2, result_list, total_grey_diff):
 	s1 = pic_cut(s1, 1 / 4.0, 3 / 4.0, 0, 1 / 2.0)
 	s = cv2.resize(s2, (int(ratio * t_width), int(t_width)), interpolation=cv2.INTER_CUBIC)
 	s2 = pic_cut(s2, 1 / 4.0, 3 / 4.0, 0, 1 / 2.0)
+	s2 = cv2.cvtColor(s2, cv2.COLOR_BGR2GRAY)
 	s = pic_cut(s, 1 / 4.0, 3 / 4.0, 0, 1 / 2.0)
 	minus = np.zeros(s1.shape, np.uint8)
 	total = 0
 	for p in result_list:
-		total += abs(float(s1[p[0], p[1], 1]) - float(s2[p[0], p[1], 1]))
+		total += abs(s2[p[0], p[1]])
 	diff_ratio = math.fabs(total_grey_diff - total) / float(total_grey_diff)
 	return diff_ratio
+
 
 if __name__ == "__main__":
 	is_quit = False
