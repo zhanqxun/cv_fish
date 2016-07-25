@@ -3,6 +3,7 @@ import datetime
 import time
 import sys
 import os
+import trace
 
 stdout = sys.stdout
 sys.stdout = open(os.devnull, "w")
@@ -52,7 +53,7 @@ class Logger(object):
 		except:
 			print_to_stdout("-----Log 格式出错--------")
 			print_to_stdout(format)
-			print_to_stdout(trace(argv))
+			print_to_stdout(str(argv))
 			print_to_stdout("-------------")
 		return msg
 
@@ -81,5 +82,8 @@ class Logger(object):
 		"""
 		print_to_stdout("ERROR: " + msg)
 		return
+
+	def log_file(self, msg):
+		print >> logout, msg,
 
 logger = Logger()

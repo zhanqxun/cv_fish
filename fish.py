@@ -27,6 +27,8 @@ STATE_FINI = 6
 STATE_CUT = 7
 """上特殊鱼饵状态"""
 STATE_SPECIAL_BAIT = 8
+"""施放水上行走技能状态"""
+STATE_WALK_ON_WATER = 9
 
 
 
@@ -59,6 +61,7 @@ if __name__ == "__main__":
 	last_bait_ts = 0
 	last_special_bait_ts = 0
 	last_cast_ts = 0
+	last_walk_on_water_ts = 0
 	while True:
 		if state == STATE_IDLE:
 			foreground()
@@ -72,9 +75,20 @@ if __name__ == "__main__":
 			# elif time.time() - last_special_bait_ts > 60 * 10:
 			# 	"""十分钟上一次特殊鱼饵"""
 			# 	state = STATE_SPECIAL_BAIT
+			# elif time.time() - last_walk_on_water_ts > 60 * 9:
+			# 	"""九分钟补一次水上行走"""
+			# 	state = STATE_WALK_ON_WATER
 			# else:
+			# 	state = STATE_CAST
 			state = STATE_CAST
 			time.sleep(1)
+		elif state == STATE_WALK_ON_WATER:
+			logger.info("水上行走")
+			foreground()
+			key_input(["F5",])
+			last_walk_on_water_ts = time.time()
+			time.sleep(2.1)
+			state = STATE_IDLE
 		elif state == STATE_CUT:
 			logger.info("上刺钩")
 			foreground()
@@ -101,7 +115,7 @@ if __name__ == "__main__":
 			foreground()
 			key_input("1")
 			last_cast_ts = time.time()
-			time.sleep(1)
+			time.sleep(2.5)
 			state = STATE_SNAP
 		elif state == STATE_SNAP:
 			logger.info("截图分析")
@@ -126,10 +140,10 @@ if __name__ == "__main__":
 			diff_ratio = core.cal_diff_ratio(ori_image, snap_image, result_list, total_grey_diff)
 			t3 = time.time()
 			#logger.info("cal cost %s", str(t3 - t2))
-			#logger.info("diff_ratio %s", str(diff_ratio))
-			if diff_ratio > 0.30:
+			logger.info("diff_ratio %s%%", str(math.floor(diff_ratio * 100)))
+			if diff_ratio > 0.24:
 				state = STATE_FINI
-				logger.info("diff_ratio %s", str(diff_ratio))
+				logger.info("diff_ratio %s%%", str(math.floor(diff_ratio * 100)))
 			# else:
 			# 	time.sleep(0.001)
 			if time.time() - last_cast_ts > 25:

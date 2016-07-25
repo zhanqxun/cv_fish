@@ -174,8 +174,8 @@ def mouse_dclick(x=None,y=None):
 		win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
 def mouse_move(x,y):
 	windll.user32.SetCursorPos(x, y)
-def key_input(str=''):
-	for c in str:
+def key_input(str_list=''):
+	for c in str_list:
 		win32api.keybd_event(VK_CODE[c],0,0,0)
 		win32api.keybd_event(VK_CODE[c],0,win32con.KEYEVENTF_KEYUP,0)
 		time.sleep(0.01)

@@ -8,6 +8,9 @@ import time
 import os
 
 
+bin_threshold = 40
+
+
 def p_to_l(x0, y0, x1, y1, x2, y2):
 	return math.fabs((y2-y1)*x0+(x1-x2)*y0+((x2*y1)-(x1*y2))) / (math.sqrt(math.pow(y2-y1, 2) + math.pow(x1-x2, 2)))
 
@@ -109,13 +112,17 @@ def get_hook(s):
 
 
 def hook(s, e, x, y, h, d):
-	if x >= 0 and y >= 0 and x < s.shape[0] and y < s.shape[1] and s[x, y] > 0 and e[x, y] == 0 and d < 200:
+	if x >= 0 and y >= 0 and x < s.shape[0] and y < s.shape[1] and s[x, y] > 0 and e[x, y] == 0 and d < 100:
 		h.append([x, y])
 		e[x, y] = 1
 		hook(s, e, x + 1, y, h, d + 1)
 		hook(s, e, x - 1, y, h, d + 1)
 		hook(s, e, x, y - 1, h, d + 1)
 		hook(s, e, x, y + 1, h, d + 1)
+		hook(s, e, x + 1, y + 1, h, d + 1)
+		hook(s, e, x - 1, y + 1, h, d + 1)
+		hook(s, e, x + 1, y - 1, h, d + 1)
+		hook(s, e, x - 1, y - 1, h, d + 1)
 
 x = 0
 y = 0
@@ -137,6 +144,43 @@ def show_win(name, img):
 		x = x + w + 15
 
 
+def print_result(result_list, s2, s1):
+	min_x = 99999
+	max_x = 0
+	min_y = 99999
+	max_y = 0
+	map_dict = {}
+	for p in result_list:
+		if min_x > p[0]:
+			min_x = p[0]
+		if max_x < p[0]:
+			max_x = p[0]
+		if min_y > p[1]:
+			min_y = p[1]
+		if max_y < p[1]:
+			max_y = p[1]
+		map_dict[(p[0], p[1])] = True
+
+	logger.log_file("s2: %s %s %s %s\n" % (min_x, max_x, min_y, max_y))
+	for x in range(min_x, max_x + 1):
+		for y in range(min_y, max_y + 1):
+			if map_dict.get((x, y), None) is not None:
+				logger.log_file(str(s2[x, y]) + "\t")
+			else:
+				logger.log_file("0" + "\t")
+		logger.log_file("\n")
+	logger.log_file("\n")
+
+	logger.log_file("s1: \n")
+	for x in range(min_x, max_x + 1):
+		for y in range(min_y, max_y + 1):
+			if map_dict.get((x, y), None) is not None:
+				logger.log_file(str(s1[x, y]) + "\t")
+			else:
+				logger.log_file("0" + "\t")
+		logger.log_file("\n")
+	logger.log_file("\n")
+
 def find_hook(s1, s2, waitKey=False):
 	t_width = s1.shape[0]
 
@@ -148,8 +192,8 @@ def find_hook(s1, s2, waitKey=False):
 	basex = 1 / 4.0 * s1.shape[1]
 	ratio = s1.shape[1] / float(s1.shape[0])
 	s1 = cv2.resize(s1, (int(ratio * t_width), int(t_width)), interpolation=cv2.INTER_CUBIC)
-	s1_back = s1.copy()
 	s1 = cv2.cvtColor(s1, cv2.COLOR_BGR2GRAY)
+	s1_back = s1.copy()
 	
 	s1 = pic_cut(s1, 1 / 4.0, 3 / 4.0, 0, 1 / 2.0)
 	s1_back = pic_cut(s1_back, 1 / 4.0, 3 / 4.0, 0, 1 / 2.0)
@@ -189,15 +233,14 @@ def find_hook(s1, s2, waitKey=False):
 	lines = pic_hough(canny, s)
 	#show_win("s3", canny)
 	
-	pic_bin(minus, 25)
+	pic_bin(minus, bin_threshold)
 	bin_back = minus.copy()
+	
 	if waitKey:
 		show_win("hough", resize(s))
 		cv2.waitKey(10)
 		show_win("binary", resize(minus))
 		cv2.waitKey(10)
-	
-
 
 	if lines is not None and len(lines):
 		d = []
@@ -222,7 +265,7 @@ def find_hook(s1, s2, waitKey=False):
 		for y in range(s2.shape[1]):
 			if s2[x, y] > 150:
 				minus[x, y] = 0
-			if x > s2.shape[0] / 10.0 * 9.0:
+			if x > s2.shape[0] / 10.0 * 9.0 or x < s2.shape[0] / 5.0:
 				minus[x, y] = 0
 
 	for x in range(minus.shape[0]):
@@ -238,7 +281,7 @@ def find_hook(s1, s2, waitKey=False):
 	opened = cv2.morphologyEx(minus, cv2.MORPH_OPEN, kernel)
 	# 在做一次闭运算，连接误分的对象
 	#kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(7, 7))
-	diamond = cv2.getStructuringElement(cv2.MORPH_RECT,(5, 5))  
+	diamond = cv2.getStructuringElement(cv2.MORPH_RECT,(9, 9))  
 
 	closed = cv2.morphologyEx(opened, cv2.MORPH_CLOSE, diamond)
 
@@ -285,9 +328,12 @@ def find_hook(s1, s2, waitKey=False):
 						result_list.append((x, y))
 						total_x += y * scale + basex
 						total_y += x * scale
-						total_grey_diff += abs(s2_back[x, y])
+						#total_grey_diff += abs(abs(float(s2_back[x, y])) - abs(float(s1_back[x, y])))
+						total_grey_diff += 1
 				else:
 					minus[x, y] = 0
+
+		print_result(result_list, s2_back, s1_back)
 
 		t6 = time.time()
 		logger.info("filter hook cost %ss", str(t6 - t5))
@@ -310,15 +356,24 @@ def cal_diff_ratio(s1, s2, result_list, total_grey_diff):
 	ratio = s1.shape[1] / float(s1.shape[0])
 	s1 = cv2.resize(s1, (int(ratio * t_width), int(t_width)), interpolation=cv2.INTER_CUBIC)
 	s1 = pic_cut(s1, 1 / 4.0, 3 / 4.0, 0, 1 / 2.0)
+	s1 = cv2.cvtColor(s1, cv2.COLOR_BGR2GRAY)
 	s = cv2.resize(s2, (int(ratio * t_width), int(t_width)), interpolation=cv2.INTER_CUBIC)
 	s2 = pic_cut(s2, 1 / 4.0, 3 / 4.0, 0, 1 / 2.0)
 	s2 = cv2.cvtColor(s2, cv2.COLOR_BGR2GRAY)
-	s = pic_cut(s, 1 / 4.0, 3 / 4.0, 0, 1 / 2.0)
+
 	minus = np.zeros(s1.shape, np.uint8)
+	pic_sub(minus, s1, s2)
+	pic_bin(minus, bin_threshold)
+
 	total = 0
 	for p in result_list:
-		total += abs(s2[p[0], p[1]])
+		if minus[p[0], p[1]] > 0:
+			total += 1
+		#total += abs(abs(float(s2[p[0], p[1]])) - abs(float(s1[p[0], p[1]])))
 	diff_ratio = math.fabs(total_grey_diff - total) / float(total_grey_diff)
+
+	print_result(result_list, s2, s1)
+
 	return diff_ratio
 
 
