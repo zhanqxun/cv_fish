@@ -62,25 +62,27 @@ if __name__ == "__main__":
 	last_special_bait_ts = 0
 	last_cast_ts = 0
 	last_walk_on_water_ts = 0
+	begin_cast_ts = 0
+	snap_count = 0
 	while True:
 		if state == STATE_IDLE:
 			foreground()
 			ori_image, rect = grab()
-			# if time.time() - last_cut_ts > 60 * 60:
-			# 	"""一个小时上一次刺钩"""
-			# 	state = STATE_CUT
-			# elif time.time() - last_bait_ts > 60 * 10:
-			# 	"""十分钟上一次鱼饵"""
-			# 	state = STATE_BAIT
-			# elif time.time() - last_special_bait_ts > 60 * 10:
-			# 	"""十分钟上一次特殊鱼饵"""
-			# 	state = STATE_SPECIAL_BAIT
-			# elif time.time() - last_walk_on_water_ts > 60 * 9:
-			# 	"""九分钟补一次水上行走"""
-			# 	state = STATE_WALK_ON_WATER
-			# else:
-			# 	state = STATE_CAST
-			state = STATE_CAST
+			if time.time() - last_cut_ts > 60 * 60:
+				"""一个小时上一次刺钩"""
+				state = STATE_CUT
+			elif time.time() - last_bait_ts > 60 * 10:
+				"""十分钟上一次鱼饵"""
+				state = STATE_BAIT
+			elif time.time() - last_special_bait_ts > 60 * 10:
+				"""十分钟上一次特殊鱼饵"""
+				state = STATE_SPECIAL_BAIT
+			elif time.time() - last_walk_on_water_ts > 60 * 9:
+				"""九分钟补一次水上行走"""
+				state = STATE_WALK_ON_WATER
+			else:
+				state = STATE_CAST
+			#state = STATE_CAST
 			time.sleep(1)
 		elif state == STATE_WALK_ON_WATER:
 			logger.info("水上行走")
@@ -115,7 +117,7 @@ if __name__ == "__main__":
 			foreground()
 			key_input("1")
 			last_cast_ts = time.time()
-			time.sleep(2.5)
+			time.sleep(3)
 			state = STATE_SNAP
 		elif state == STATE_SNAP:
 			logger.info("截图分析")
@@ -127,21 +129,24 @@ if __name__ == "__main__":
 			if target_pos:
 				state = STATE_WAIT
 				time.sleep(0.05)
+				begin_cast_ts = time.time()
+				snap_count = 0
 			else:
 				state = STATE_IDLE
-				#key_input(["esc"])
-				time.sleep(3)
+				key_input(["spacebar", ])
+				time.sleep(4)
 			#cv2.waitKey(0)
 		elif state == STATE_WAIT:
 			t1 = time.time()
+			snap_count += 1
 			snap_image, rect = grab()
-			t2 = time.time()
+			#t2 = time.time()
 			#logger.info("grab cost %s", str(t2 - t1))
 			diff_ratio = core.cal_diff_ratio(ori_image, snap_image, result_list, total_grey_diff)
-			t3 = time.time()
+			#t3 = time.time()
 			#logger.info("cal cost %s", str(t3 - t2))
-			logger.info("diff_ratio %s%%", str(math.floor(diff_ratio * 100)))
-			if diff_ratio > 0.24:
+			#logger.info("diff_ratio %s%%", str(math.floor(diff_ratio * 100)))
+			if diff_ratio > 0.35:
 				state = STATE_FINI
 				logger.info("diff_ratio %s%%", str(math.floor(diff_ratio * 100)))
 			# else:
@@ -151,7 +156,8 @@ if __name__ == "__main__":
 				#key_input(["esc"])
 				time.sleep(2)
 		elif state == STATE_FINI:
-			logger.info("收杆")
+			t_cost_time = time.time() - begin_cast_ts
+			logger.info("收杆 snap %s次/秒" % str(int(math.floor(snap_count / t_cost_time))))
 			foreground()
 			mouse_move(target_pos[0] + rect.left, target_pos[1] + rect.top)
 			mouse_click(target_pos[0] + rect.left, target_pos[1] + rect.top)

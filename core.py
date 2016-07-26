@@ -8,7 +8,7 @@ import time
 import os
 
 
-bin_threshold = 40
+bin_threshold = 35
 
 
 def p_to_l(x0, y0, x1, y1, x2, y2):
@@ -67,31 +67,27 @@ def pic_cut(s, left, right, top, bottom):
 
 
 def pic_sub(dest, s1, s2):
-	for x in range(dest.shape[0]):
-		for y in range(dest.shape[1]):
-			if s1[x, y] > s2[x, y]:
-				dest[x, y] = s1[x, y] - s2[x, y]
-			else:
-				dest[x, y] = s2[x, y] - s1[x, y]
+	# for x in range(dest.shape[0]):
+	# 	for y in range(dest.shape[1]):
+	# 		if s1[x, y] > s2[x, y]:
+	# 			dest[x, y] = s1[x, y] - s2[x, y]
+	# 		else:
+	# 			dest[x, y] = s2[x, y] - s1[x, y]
+	return cv2.absdiff(s2, s1, dest)
 
-def pic_sub2(dest, s1, s2, lst):
-	for p in lst:
-		x = p[0]
-		y = p[1]
-		if s1[x, y] > s2[x, y]:
-			dest[x, y] = s1[x, y] - s2[x, y]
-		else:
-			dest[x, y] = s2[x, y] - s1[x, y]
+# def pic_sub2(dest, s1, s2, lst):
+# 	for p in lst:
+# 		x = p[0]
+# 		y = p[1]
+# 		if s1[x, y] > s2[x, y]:
+# 			dest[x, y] = s1[x, y] - s2[x, y]
+# 		else:
+# 			dest[x, y] = s2[x, y] - s1[x, y]
 
 
 
-def pic_bin(dest, threshold):
-	for x in range(dest.shape[0]):
-		for y in range(dest.shape[1]):
-			if dest[x, y] < threshold:
-				dest[x, y] = 0
-			else:
-				dest[x, y] = 255
+def pic_bin(dest, t):
+	return cv2.threshold(dest, t, 255, cv2.THRESH_BINARY)[1]
 
 def resize(s1):
 	ratio = s1.shape[1] / float(s1.shape[0])
@@ -112,7 +108,7 @@ def get_hook(s):
 
 
 def hook(s, e, x, y, h, d):
-	if x >= 0 and y >= 0 and x < s.shape[0] and y < s.shape[1] and s[x, y] > 0 and e[x, y] == 0 and d < 100:
+	if x >= 0 and y >= 0 and x < s.shape[0] and y < s.shape[1] and s[x, y] > 0 and e[x, y] == 0 and d < 200:
 		h.append([x, y])
 		e[x, y] = 1
 		hook(s, e, x + 1, y, h, d + 1)
@@ -233,7 +229,7 @@ def find_hook(s1, s2, waitKey=False):
 	lines = pic_hough(canny, s)
 	#show_win("s3", canny)
 	
-	pic_bin(minus, bin_threshold)
+	minus = pic_bin(minus, bin_threshold)
 	bin_back = minus.copy()
 	
 	if waitKey:
@@ -323,17 +319,43 @@ def find_hook(s1, s2, waitKey=False):
 		for x in range(minus.shape[0]):
 			for y in range(minus.shape[1]):
 				if hook_map.get((x, y), None) is not None:
-					if minus[x, y] > 0 and bin_back[x, y] > 0:
+					if minus[x, y] > 0 and bin_back[x, y] > 10:
 						target_num += 1
 						result_list.append((x, y))
 						total_x += y * scale + basex
 						total_y += x * scale
 						#total_grey_diff += abs(abs(float(s2_back[x, y])) - abs(float(s1_back[x, y])))
-						total_grey_diff += 1
+					else:
+						minus[x, y] = 0
 				else:
 					minus[x, y] = 0
+		logger.info("len result_list %s", len(result_list))
+		if len(result_list) > 100:
+			min_x = 99999
+			max_x = 0
+			min_y = 99999
+			max_y = 0
+			map_dict = {}
+			for p in result_list:
+				if min_x > p[0]:
+					min_x = p[0]
+				if max_x < p[0]:
+					max_x = p[0]
+				if min_y > p[1]:
+					min_y = p[1]
+				if max_y < p[1]:
+					max_y = p[1]
+				map_dict[(p[0], p[1])] = True
+			new_result_list = []
+			for p in result_list:
+				if p[1] < (min_y + max_y) / 2.0:
+					new_result_list.append(p)
+				else:
+					minus[p[0], p[1]] = 0
+			result_list = new_result_list
 
-		print_result(result_list, s2_back, s1_back)
+
+		#print_result(result_list, s2_back, s1_back)
 
 		t6 = time.time()
 		logger.info("filter hook cost %ss", str(t6 - t5))
@@ -347,7 +369,7 @@ def find_hook(s1, s2, waitKey=False):
 
 		# logger.info("press key to continue")
 		# cv2.waitKey(0)
-
+	total_grey_diff = len(result_list)
 	return result_list, target_pos, total_grey_diff
 
 
@@ -362,17 +384,23 @@ def cal_diff_ratio(s1, s2, result_list, total_grey_diff):
 	s2 = cv2.cvtColor(s2, cv2.COLOR_BGR2GRAY)
 
 	minus = np.zeros(s1.shape, np.uint8)
+	t1 = time.time()
 	pic_sub(minus, s1, s2)
-	pic_bin(minus, bin_threshold)
-
+	t2 = time.time()
+	minus = pic_bin(minus, bin_threshold)
+	t3 = time.time()
+	#logger.info("sub cost %ss", t2 - t1)
+	#logger.info("bin cost %ss", t3 - t2)
 	total = 0
 	for p in result_list:
-		if minus[p[0], p[1]] > 0:
+		if minus[p[0], p[1]] > 10:
 			total += 1
 		#total += abs(abs(float(s2[p[0], p[1]])) - abs(float(s1[p[0], p[1]])))
+	#logger.info("len(result_list) %s total %s total_grey_diff %s", len(result_list), total, total_grey_diff)
 	diff_ratio = math.fabs(total_grey_diff - total) / float(total_grey_diff)
 
-	print_result(result_list, s2, s1)
+	#print_result(result_list, s2, s1)
+	#logger.log_file("ratio: %s%%" % str(math.floor(diff_ratio * 100)))
 
 	return diff_ratio
 

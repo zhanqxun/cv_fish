@@ -84,6 +84,7 @@ class Logger(object):
 		return
 
 	def log_file(self, msg):
-		print >> logout, msg,
+		#print >> logout, msg,
+		pass
 
 logger = Logger()
