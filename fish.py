@@ -1,4 +1,4 @@
-# -*- coding:UTF-8 -*-
+#-*- coding:UTF-8 -*-
 
 from image_grab import grab_wnd, put_foreground
 import PIL
@@ -68,21 +68,21 @@ if __name__ == "__main__":
 		if state == STATE_IDLE:
 			foreground()
 			ori_image, rect = grab()
-			if time.time() - last_cut_ts > 60 * 60:
-				"""一个小时上一次刺钩"""
-				state = STATE_CUT
-			elif time.time() - last_bait_ts > 60 * 10:
-				"""十分钟上一次鱼饵"""
-				state = STATE_BAIT
-			elif time.time() - last_special_bait_ts > 60 * 10:
-				"""十分钟上一次特殊鱼饵"""
-				state = STATE_SPECIAL_BAIT
-			elif time.time() - last_walk_on_water_ts > 60 * 9:
-				"""九分钟补一次水上行走"""
-				state = STATE_WALK_ON_WATER
-			else:
-				state = STATE_CAST
-			#state = STATE_CAST
+			# if time.time() - last_cut_ts > 60 * 60:
+			# 	"""一个小时上一次刺钩"""
+			# 	state = STATE_CUT
+			# elif time.time() - last_bait_ts > 60 * 10:
+			# 	"""十分钟上一次鱼饵"""
+			# 	state = STATE_BAIT
+			# elif time.time() - last_special_bait_ts > 60 * 10:
+			# 	"""十分钟上一次特殊鱼饵"""
+			# 	state = STATE_SPECIAL_BAIT
+			# elif time.time() - last_walk_on_water_ts > 60 * 9:
+			# 	"""九分钟补一次水上行走"""
+			# 	state = STATE_WALK_ON_WATER
+			# else:
+			#	state = STATE_CAST
+			state = STATE_CAST
 			time.sleep(1)
 		elif state == STATE_WALK_ON_WATER:
 			logger.info("水上行走")
