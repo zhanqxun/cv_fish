@@ -43,8 +43,9 @@ def grab():
 	while True:
 		pil_image, rect = grab_wnd("魔兽世界")
 		if not pil_image:
-			print "Cannot find wow hwnd, esc exit, other continue"
-			esc_exit()
+			logger.info("Cannot find wow hwnd") 
+			#esc_exit()
+			return None, None
 		else:
 			opencvImage = cv2.cvtColor(numpy.array(pil_image), cv2.COLOR_RGB2BGR)
 			return opencvImage, rect
@@ -68,6 +69,8 @@ if __name__ == "__main__":
 		if state == STATE_IDLE:
 			foreground()
 			ori_image, rect = grab()
+			if not ori_image:
+				break
 			# if time.time() - last_cut_ts > 60 * 60:
 			# 	"""一个小时上一次刺钩"""
 			# 	state = STATE_CUT

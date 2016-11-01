@@ -1,7 +1,7 @@
 # -*- coding:UTF-8 -*-
 
 import ctypes
-import ImageGrab
+from PIL import ImageGrab
 from SimpleLogger import logger
 from SimpleLogger import to_gbk
 from SimpleLogger import to_utf8
@@ -21,7 +21,7 @@ def grab_wnd(wnd_name):
 	#logger.info("找到HWND %s", str(HWND))
 	if HWND == 0:  
 		logger.info("找不到窗口 %s", to_utf8(wnd_name))
-		return None
+		return None, None
 	rect =RECT()  
 	ctypes.windll.user32.GetWindowRect(HWND,ctypes.byref(rect))  
 	#去掉状态栏
